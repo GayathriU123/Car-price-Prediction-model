@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Car Price Predictor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="wrap">
+
+    <!-- ── HERO ── -->
+    <div class="hero">
+        <div class="hero-badge">⚡ AI POWERED</div>
+        <h1>CAR PRICE <span>PREDICTOR</span></h1>
+        <p>Intelligent resale value estimation · Market insights · Compare cars</p>
+    </div>
+
+    <!-- ── TABS ── -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('predict', this)">⚡ Predict</button>
+        <button class="tab-btn" onclick="switchTab('compare', this)">⚖ Compare</button>
+    </div>
+
+
+    <!-- ══════════════════════════════════════════════
+         TAB 1 — PREDICT
+    ══════════════════════════════════════════════ -->
+    <div id="tab-predict" class="tab-panel active">
+
+        <div class="card">
+
+            <div class="ai-box">
+                <div class="ai-dot"></div>
+                <span id="aiText">Ready to analyze your vehicle...</span>
+            </div>
+
+            <form id="predictForm" method="post">
+
+                <p class="section-label">Vehicle Details</p>
+                <div class="grid">
+
+                    <div class="field-wrap">
+                        <span class="field-label">Brand</span>
+                        <select id="company" name="company"
+                                onchange="load_car_models(this.id,'car_models')">
+                            {% for company in companies %}
+                            <option value="{{ company }}">{{ company }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="field-wrap">
+                        <span class="field-label">Model</span>
+                        <select id="car_models" name="car_models"></select>
+                    </div>
+
+                    <div class="field-wrap">
+                        <span class="field-label">Year</span>
+                        <select id="year" name="year">
+                            {% for year in years %}
+                            <option value="{{ year }}">{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="field-wrap">
+                        <span class="field-label">Fuel Type</span>
+                        <select id="fuel_type" name="fuel_type">
+                            {% for fuel in fuel_types %}
+                            <option value="{{ fuel }}">{{ fuel }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+
+                <div class="field-wrap">
+                    <span class="field-label">Kilometers Driven</span>
+                    <div class="km-wrap">
+                        <input type="text" id="kilo_driven" name="kilo_driven"
+                               placeholder="e.g. 45000">
+                        <span class="km-unit">KM</span>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-predict" onclick="send_data()">
+                    ⚡ PREDICT PRICE
+                </button>
+
+            </form>
+
+            <!-- Result -->
+            <div class="result-box" id="resultBox">
+                <div class="result-label">Estimated Resale Value</div>
+                <div id="prediction"></div>
+                <div id="vsMarketBadge"></div>
+                <div class="result-meta" id="resultMeta">Based on ML model prediction</div>
+            </div>
+
+        </div><!-- /.card -->
+
+        <!-- Confidence -->
+        <div class="confidence-wrap" id="confidenceWrap" style="display:none">
+            <div class="conf-header">
+                <span class="conf-title">Prediction Confidence</span>
+                <span class="conf-score" id="confScore">—</span>
+            </div>
+            <div class="conf-track">
+                <div class="conf-fill" id="confFill"></div>
+            </div>
+            <div class="conf-note" id="confNote"></div>
+        </div>
+
+        <!-- Market Insights -->
+        <div class="insights-section" id="insightsSection">
+            <div class="insights-grid">
+                <div class="insight-card">
+                    <div class="insight-icon">📊</div>
+                    <div class="insight-val" id="ins-avg">—</div>
+                    <div class="insight-lbl">Market Avg</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon">📋</div>
+                    <div class="insight-val" id="ins-listings">—</div>
+                    <div class="insight-lbl">Listings Found</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon">🏆</div>
+                    <div class="insight-val" id="ins-best-year">—</div>
+                    <div class="insight-lbl">Best Resale Year</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon">⬇</div>
+                    <div class="insight-val" id="ins-min">—</div>
+                    <div class="insight-lbl">Lowest Price</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon">⬆</div>
+                    <div class="insight-val" id="ins-max">—</div>
+                    <div class="insight-lbl">Highest Price</div>
+                </div>
+                <div class="insight-card">
+                    <div class="insight-icon">🛣</div>
+                    <div class="insight-val" id="ins-km">—</div>
+                    <div class="insight-lbl">Avg KM Driven</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Depreciation Chart (real data from CSV) -->
+        <div class="chart-card" id="chartCard">
+            <div class="chart-header">
+                <span class="chart-title">DEPRECIATION TREND</span>
+                <span class="chart-badge">REAL DATA</span>
+            </div>
+            <canvas id="priceChart"></canvas>
+        </div>
+
+    </div><!-- /#tab-predict -->
+
+
+    <!-- ══════════════════════════════════════════════
+         TAB 2 — COMPARE
+    ══════════════════════════════════════════════ -->
+    <div id="tab-compare" class="tab-panel">
+
+        <div class="card">
+            <div class="ai-box">
+                <div class="ai-dot"></div>
+                <span id="aiTextB">Select two cars to compare...</span>
+            </div>
+
+            <div class="compare-grid">
+
+                <!-- Car A -->
+                <div class="compare-col">
+                    <div class="compare-col-label">CAR A</div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Brand</span>
+                        <select id="a_company" name="a_company"
+                                onchange="load_compare_models('a_company','a_car_models')">
+                            {% for company in companies %}
+                            <option value="{{ company }}">{{ company }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Model</span>
+                        <select id="a_car_models" name="a_car_models"></select>
+                    </div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Year</span>
+                        <select id="a_year" name="a_year">
+                            {% for year in years %}
+                            <option value="{{ year }}">{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Fuel</span>
+                        <select id="a_fuel_type" name="a_fuel_type">
+                            {% for fuel in fuel_types %}
+                            <option value="{{ fuel }}">{{ fuel }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <span class="field-label">KM Driven</span>
+                        <div class="km-wrap">
+                            <input type="text" id="a_kilo_driven" placeholder="e.g. 30000">
+                            <span class="km-unit">KM</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Car B -->
+                <div class="compare-col">
+                    <div class="compare-col-label">CAR B</div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Brand</span>
+                        <select id="b_company" name="b_company"
+                                onchange="load_compare_models('b_company','b_car_models')">
+                            {% for company in companies %}
+                            <option value="{{ company }}">{{ company }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Model</span>
+                        <select id="b_car_models" name="b_car_models"></select>
+                    </div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Year</span>
+                        <select id="b_year" name="b_year">
+                            {% for year in years %}
+                            <option value="{{ year }}">{{ year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field-wrap" style="margin-bottom:10px">
+                        <span class="field-label">Fuel</span>
+                        <select id="b_fuel_type" name="b_fuel_type">
+                            {% for fuel in fuel_types %}
+                            <option value="{{ fuel }}">{{ fuel }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field-wrap">
+                        <span class="field-label">KM Driven</span>
+                        <div class="km-wrap">
+                            <input type="text" id="b_kilo_driven" placeholder="e.g. 50000">
+                            <span class="km-unit">KM</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /.compare-grid -->
+
+            <button type="button" class="btn-predict" onclick="run_compare()">
+                ⚖ COMPARE CARS
+            </button>
+
+            <!-- Compare Result -->
+            <div class="compare-result" id="compareResult">
+                <div class="compare-vs-row">
+                    <div class="compare-price-card" id="cpCardA">
+                        <div class="cp-label">Car A</div>
+                        <div class="cp-model" id="cpModelA"></div>
+                        <div class="cp-price" id="cpPriceA"></div>
+                    </div>
+                    <div class="vs-label">VS</div>
+                    <div class="compare-price-card" id="cpCardB">
+                        <div class="cp-label">Car B</div>
+                        <div class="cp-model" id="cpModelB"></div>
+                        <div class="cp-price" id="cpPriceB"></div>
+                    </div>
+                </div>
+                <canvas id="compareChart"></canvas>
+            </div>
+
+        </div><!-- /.card -->
+
+    </div><!-- /#tab-compare -->
+
+</div><!-- /.wrap -->
+
+<script>
+
+// ════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+
+
+// ════════════════════════════════════════════════
+//  MODEL LOADER — Predict tab (unchanged logic)
+// ════════════════════════════════════════════════
+function load_car_models(company_id, car_model_id) {
+    var company   = document.getElementById(company_id);
+    var car_model = document.getElementById(car_model_id);
+    car_model.innerHTML = "";
+
+    {% for company in companies %}
+        if (company.value == "{{ company }}") {
+            {% for model in car_models %}
+                {% if company in model %}
+                    var newOption       = document.createElement("option");
+                    newOption.value     = "{{ model }}";
+                    newOption.innerHTML = "{{ model }}";
+                    car_model.options.add(newOption);
+                {% endif %}
+            {% endfor %}
+        }
+    {% endfor %}
+}
+
+// MODEL LOADER — Compare tab (same logic, different selects)
+function load_compare_models(company_id, car_model_id) {
+    load_car_models(company_id, car_model_id);
+}
+
+
+// ════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════
+let chartInstance    = null;
+let compareChartInst = null;
+
+function fmt(n) {
+    return '₹ ' + Math.round(n).toLocaleString('en-IN');
+}
+
+function fmtK(n) {
+    return Math.round(n / 1000) + 'k km';
+}
+
+
+// ════════════════════════════════════════════════
+//  PREDICT
+// ════════════════════════════════════════════════
+function send_data() {
+    var fd = new FormData(document.getElementById('predictForm'));
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/predict', true);
+
+    document.getElementById('aiText').textContent = 'Analyzing market data...';
+    document.getElementById('resultBox').classList.remove('visible');
+    document.getElementById('confidenceWrap').style.display = 'none';
+    document.getElementById('insightsSection').classList.remove('visible');
+    document.getElementById('chartCard').classList.remove('visible');
+
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== XMLHttpRequest.DONE) return;
+
+        var finalPrice = parseFloat(xhr.responseText);
+        if (isNaN(finalPrice)) {
+            document.getElementById('aiText').textContent = 'Error: ' + xhr.responseText;
+            return;
+        }
+
+        // ── Count-up animation ──
+        document.getElementById('resultBox').classList.add('visible');
+        var count = 0, speed = finalPrice / 80;
+        var counter = setInterval(function () {
+            count += speed;
+            if (count >= finalPrice) { count = finalPrice; clearInterval(counter); }
+            document.getElementById('prediction').textContent = fmt(count);
+        }, 20);
+
+        document.getElementById('aiText').textContent = 'Prediction complete';
+
+        // ── Fetch insights from server ──
+        var ifd = new FormData(document.getElementById('predictForm'));
+        ifd.append('predicted_price', finalPrice);
+
+        var xhr2 = new XMLHttpRequest();
+        xhr2.open('POST', '/insights', true);
+        xhr2.onreadystatechange = function () {
+            if (xhr2.readyState !== XMLHttpRequest.DONE) return;
+
+            try {
+                var d = JSON.parse(xhr2.responseText);
+                if (d.error) return;
+
+                // vs market badge
+                var badge = document.getElementById('vsMarketBadge');
+                if (d.vs_market > 3) {
+                    badge.innerHTML = '<span class="vs-market above">▲ ' + Math.abs(d.vs_market) + '% above market avg</span>';
+                } else if (d.vs_market < -3) {
+                    badge.innerHTML = '<span class="vs-market below">▼ ' + Math.abs(d.vs_market) + '% below market avg</span>';
+                } else {
+                    badge.innerHTML = '<span class="vs-market neutral">≈ In line with market avg</span>';
+                }
+
+                // Confidence
+                document.getElementById('confidenceWrap').style.display = 'block';
+                document.getElementById('confScore').textContent = d.confidence + '%';
+                setTimeout(function () {
+                    document.getElementById('confFill').style.width = d.confidence + '%';
+                }, 100);
+                var notes = ['Very few listings — estimate may vary', 'Some data available', 'Good data coverage', 'Strong data coverage — high accuracy'];
+                var noteIdx = d.confidence < 60 ? 0 : d.confidence < 75 ? 1 : d.confidence < 88 ? 2 : 3;
+                document.getElementById('confNote').textContent = notes[noteIdx];
+
+                // Insights cards
+                document.getElementById('ins-avg').textContent    = fmt(d.avg_price);
+                document.getElementById('ins-listings').textContent = d.total_listed;
+                document.getElementById('ins-best-year').textContent = d.best_year || '—';
+                document.getElementById('ins-min').textContent    = fmt(d.min_price);
+                document.getElementById('ins-max').textContent    = fmt(d.max_price);
+                document.getElementById('ins-km').textContent     = d.avg_km > 0 ? fmtK(d.avg_km) : '—';
+                document.getElementById('insightsSection').classList.add('visible');
+
+                // ── Real depreciation chart ──
+                if (d.year_labels && d.year_labels.length > 1) {
+                    document.getElementById('chartCard').classList.add('visible');
+                    if (chartInstance) chartInstance.destroy();
+                    var ctx = document.getElementById('priceChart').getContext('2d');
+                    chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: d.year_labels,
+                            datasets: [{
+                                label: 'Avg Resale Price (₹)',
+                                data: d.year_prices,
+                                borderColor: '#00ffe7',
+                                backgroundColor: 'rgba(0,255,231,0.06)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.35,
+                                pointBackgroundColor: '#00ffe7',
+                                pointBorderColor: 'transparent',
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (ctx) {
+                                            return fmt(ctx.raw);
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: 'rgba(255,255,255,0.04)' },
+                                    ticks: { color: '#475569', font: { size: 11, family: 'Inter' } }
+                                },
+                                y: {
+                                    grid: { color: 'rgba(255,255,255,0.04)' },
+                                    ticks: {
+                                        color: '#475569',
+                                        font: { size: 11, family: 'Inter' },
+                                        callback: function (v) { return '₹' + Math.round(v / 1000) + 'k'; }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+            } catch (e) { console.error('Insights parse error', e); }
+        };
+        xhr2.send(ifd);
+    };
+
+    xhr.send(fd);
+}
+
+
+// ════════════════════════════════════════════════
+//  COMPARE
+// ════════════════════════════════════════════════
+function run_compare() {
+    document.getElementById('aiTextB').textContent = 'Comparing vehicles...';
+    document.getElementById('compareResult').classList.remove('visible');
+
+    var fd = new FormData();
+    fd.append('a_company',    document.getElementById('a_company').value);
+    fd.append('a_car_models', document.getElementById('a_car_models').value);
+    fd.append('a_year',       document.getElementById('a_year').value);
+    fd.append('a_fuel_type',  document.getElementById('a_fuel_type').value);
+    fd.append('a_kilo_driven',document.getElementById('a_kilo_driven').value || '0');
+    fd.append('b_company',    document.getElementById('b_company').value);
+    fd.append('b_car_models', document.getElementById('b_car_models').value);
+    fd.append('b_year',       document.getElementById('b_year').value);
+    fd.append('b_fuel_type',  document.getElementById('b_fuel_type').value);
+    fd.append('b_kilo_driven',document.getElementById('b_kilo_driven').value || '0');
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/compare', true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== XMLHttpRequest.DONE) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (d.error) {
+                document.getElementById('aiTextB').textContent = 'Error: ' + d.error;
+                return;
+            }
+
+            var a = d.car_a, b = d.car_b;
+            var winner = a.price >= b.price ? 'A' : 'B';
+
+            document.getElementById('cpModelA').textContent = a.company + ' ' + a.model;
+            document.getElementById('cpPriceA').textContent = fmt(a.price);
+            document.getElementById('cpModelB').textContent = b.company + ' ' + b.model;
+            document.getElementById('cpPriceB').textContent = fmt(b.price);
+
+            // Winner highlight
+            document.getElementById('cpCardA').classList.toggle('winner', winner === 'A');
+            document.getElementById('cpCardB').classList.toggle('winner', winner === 'B');
+
+            // Add winner badge
+            var wCard = document.getElementById('cpCard' + winner);
+            if (!wCard.querySelector('.winner-badge')) {
+                var badge = document.createElement('div');
+                badge.className = 'winner-badge';
+                badge.textContent = 'HIGHER VALUE';
+                wCard.appendChild(badge);
+            }
+
+            document.getElementById('compareResult').classList.add('visible');
+            document.getElementById('aiTextB').textContent = 'Comparison complete';
+
+            // Compare bar chart
+            if (compareChartInst) compareChartInst.destroy();
+            var ctx2 = document.getElementById('compareChart').getContext('2d');
+            compareChartInst = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: [
+                        (a.company + ' ' + a.model).substring(0, 18),
+                        (b.company + ' ' + b.model).substring(0, 18)
+                    ],
+                    datasets: [
+                        {
+                            label: 'Predicted Price',
+                            data: [Math.round(a.price), Math.round(b.price)],
+                            backgroundColor: ['rgba(0,255,231,0.7)', 'rgba(99,102,241,0.7)'],
+                            borderColor: ['#00ffe7', '#6366f1'],
+                            borderWidth: 1,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Market Avg',
+                            data: [Math.round(a.avg_price), Math.round(b.avg_price)],
+                            backgroundColor: ['rgba(0,255,231,0.15)', 'rgba(99,102,241,0.15)'],
+                            borderColor: ['rgba(0,255,231,0.4)', 'rgba(99,102,241,0.4)'],
+                            borderWidth: 1,
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#475569', font: { size: 11, family: 'Inter' } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) { return ctx.dataset.label + ': ' + fmt(ctx.raw); }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: { color: '#475569', font: { size: 11, family: 'Inter' } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#475569',
+                                font: { size: 11, family: 'Inter' },
+                                callback: function (v) { return '₹' + Math.round(v / 1000) + 'k'; }
+                            }
+                        }
+                    }
+                }
+            });
+
+        } catch (e) {
+            document.getElementById('aiTextB').textContent = 'Parse error';
+            console.error(e);
+        }
+    };
+    xhr.send(fd);
+}
+
+</script>
+</body>
+</html>
